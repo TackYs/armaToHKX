@@ -94,3 +94,41 @@ def get_armature(context):
             else:
                 print('INFO get_armature: More than one armature in scene, using the currently selected armature.')
     return arma_obj
+
+def get_active_obj_action_name(obj):
+    action_name = (bpy.data.objects[obj.name].animation_data.action.name
+        if bpy.data.objects[obj.name].animation_data is not None and
+        bpy.data.objects[obj.name].animation_data.action is not None
+        else None)
+    return action_name
+
+def get_anim_markers(arma_obj):
+
+    action_name = get_active_obj_action_name(arma_obj)
+
+    anim_markers=[]
+    if action_name is not None:
+        if not any([bpy.data.actions[action_name].pose_markers, bpy.context.scene.timeline_markers]):
+            print("No markers to collect.")
+            return anim_markers
+        #Copy pose markers
+        for pose_marker in bpy.data.actions[action_name].pose_markers:
+            frame =  pose_marker.frame
+            marker =  pose_marker.name
+            anim_markers.append((frame, marker))
+        #Copy timeline markers
+        for timeline_marker in bpy.context.scene.timeline_markers:
+            frame = timeline_marker.frame
+            marker = timeline_marker.name
+            anim_markers.append((frame, marker))
+    return anim_markers
+
+def set_anim_markers(arm_obj, list_tuple_marker_frame):
+    action_name = get_active_obj_action_name(arm_obj)
+    if action_name is not None:
+        for (frame, marker) in list_tuple_marker_frame:
+            new_pm = bpy.data.actions[action_name].pose_markers.new(marker)
+            new_pm.frame = int(frame) # bpy 3.1+ requires explicit int, wont implicitly convert float
+    else:
+        print("No active action - baking failed?")
+    return

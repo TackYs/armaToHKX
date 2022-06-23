@@ -38,8 +38,7 @@
 #Broken out parts and some hacks of blender_niftools_plugin to export skeletons to .hkx as well as
 #Exporting animations using kfmaker instead of the blender_niftools_plugin
 #MUST HAVE blender_niftools_plugin installed in blender for this script to work.
-#Built using v0.0.9+, might not work with future versions or pyffi updates
-
+#Built using v0.0.9, might not work with future versions or pyffi updates
 
 bl_info = {
     "name": "armaToHKX",
@@ -63,7 +62,7 @@ from bpy.types import (Panel,
                        )
 from bpy_extras.io_utils import ExportHelper, ImportHelper
 from io_scene_armaToHKX.core.armaToHKXcore import TransformAnimation, export_animation, export_skeleton, export_character, export_project
-from io_scene_armaToHKX.core.armaToHKXUtils import sample_constraints, reintroduce_constraints, get_armature
+from io_scene_armaToHKX.core.armaToHKXUtils import sample_constraints, reintroduce_constraints, get_armature, get_anim_markers, set_anim_markers
 from io_scene_niftools.utils.singleton import NifOp
 import os
 import subprocess
@@ -456,16 +455,19 @@ class ExportArmaToHKX(Operator, ExportHelper):
         # The operator is bpy.ops.nla.bake
         # docs at https://docs.blender.org/api/current/bpy.ops.nla.html
         global sampled_constraints
+        
         if self.bake:
             arm_obj = get_armature(context)
             if arm_obj is None:
                 return {"CANCELLED"}
             print("Sampling armature constraints before export")
             sampled_constraints=sample_constraints(arm_obj)
+            print("collecting markers from action")
+            anim_markers = get_anim_markers(arm_obj)
             print("Baking action...")
             #Collect starting and ending frame first
             start=context.scene.frame_start
-            end=context.scene.frame_end
+            end=context.scene.frame_end            
             bpy.ops.nla.bake(frame_start=start, frame_end=end, step=1, only_selected=False, visual_keying=True, clear_constraints=False, clear_parents=False, use_current_action=False, clean_curves=False, bake_types={'POSE'})
             #Set influence of constraints to zero
             print("Setting bone constraint influences to zero (use 'restore constraints' in the armatoHKX panel to restore)")
@@ -473,6 +475,9 @@ class ExportArmaToHKX(Operator, ExportHelper):
                 if pbone.constraints:
                     for constraint in pbone.constraints:
                         constraint.influence=0.0
+            if anim_markers:
+                print("Transfering markers from previous action")
+                set_anim_markers(arm_obj, anim_markers)
         print("Exporting kf through io_scene_niftools")
         if bpy.context.scene.niftools_scene.scale_correction != self.scale_correction:
             reportStr="WARNING: niftools scale correction not equal to "+str(self.scale_correction)+", overriding."
